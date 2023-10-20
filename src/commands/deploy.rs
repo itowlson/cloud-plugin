@@ -302,7 +302,7 @@ impl DeployCommand {
     async fn load_cloud_app(&self, working_dir: &Path) -> Result<DeployableApp, anyhow::Error> {
         let app_source = self.resolve_app_source();
 
-        let locked_app = match &app_source {
+        let mut locked_app = match &app_source {
             AppSource::File(app_file) => {
                 spin_loader::from_file(
                     &app_file,
@@ -338,6 +338,16 @@ impl DeployCommand {
                 "Non-HTTP triggers are not supported - app uses {}",
                 unsupported_triggers.join(", ")
             );
+        }
+
+        // Ensure an http 'base' is set
+        if let Some(trigger) = locked_app
+            .metadata
+            .entry("trigger")
+            .or_insert_with(|| serde_json::Value::Object(Default::default()))
+            .as_object_mut()
+        {
+            trigger.entry("base").or_insert_with(|| "/".into());
         }
 
         Ok(DeployableApp(locked_app))
